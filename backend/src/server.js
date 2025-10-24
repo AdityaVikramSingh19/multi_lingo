@@ -3,6 +3,7 @@ import "dotenv/config";
 import cookieParser from "cookie-parser";
 import cors from "cors";
 import path from "path";
+import fs from "fs";
 
 import authRoutes from "./routes/auth.route.js";
 import userRoutes from "./routes/user.route.js";
@@ -11,7 +12,7 @@ import chatRoutes from "./routes/chat.route.js";
 import { connectDB } from "./lib/db.js";
 
 const app = express();
-const PORT = process.env.PORT;
+const PORT = process.env.PORT || 5001;
 
 const __dirname = path.resolve();
 
@@ -29,12 +30,20 @@ app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/chat", chatRoutes);
 
-if (process.env.NODE_ENV === "production") {
-  app.use(express.static(path.join(__dirname, "../frontend/dist")));
+
+// If a built frontend exists, serve it. This lets `npm run build` + `npm start`
+// work without requiring NODE_ENV=production to be set.
+const frontendDist = path.join(__dirname, "../frontend/dist");
+if (fs.existsSync(frontendDist)) {
+  app.use(express.static(frontendDist));
 
   app.get("*", (req, res) => {
-    res.sendFile(path.join(__dirname, "../frontend", "dist", "index.html"));
+    res.sendFile(path.join(frontendDist, "index.html"));
   });
+  console.log("Serving frontend from:", frontendDist);
+} else if (process.env.NODE_ENV === "production") {
+  // Warn in case user expects production serving but forgot to build
+  console.warn("NODE_ENV=production but no frontend build found at", frontendDist);
 }
 
 app.listen(PORT, () => {
